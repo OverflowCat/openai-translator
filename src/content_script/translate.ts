@@ -8,6 +8,7 @@ export type TranslateMode = 'translate' | 'polishing' | 'summarize' | 'analyze' 
 export interface TranslateQuery {
     text: string
     selectedWord: string
+    pronounce: boolean
     detectFrom: string
     detectTo: string
     mode: TranslateMode
@@ -37,11 +38,20 @@ export async function translate(query: TranslateQuery) {
     const fromChinese = chineseLangs.indexOf(query.detectFrom) >= 0
     const toChinese = chineseLangs.indexOf(query.detectTo) >= 0
     let systemPrompt = 'You are a translation engine that can only translate text and cannot interpret it.'
-    let assistantPrompt = `translate from ${lang.langMap.get(query.detectFrom) || query.detectFrom} to ${
-        lang.langMap.get(query.detectTo) || query.detectTo
-    }`
+    let assistantPrompt = `translate from ${lang.langMap.get(query.detectFrom) || query.detectFrom} to ${lang.langMap.get(query.detectTo) || query.detectTo
+        }`
     switch (query.mode) {
         case 'translate':
+            if (query.pronounce) {
+                assistantPrompt =
+                    {
+                        ja: "Transliterate Japanese to romaji and hiragana",
+                        ko: "Transcript hangul to Revised Romanization",
+                        ar: "Transliterate to ISO 233",
+                        ru: "Romanize Cyrillic script",
+                    }[query.detectFrom] || `Transcript to IPA`
+                break
+            }
             if (query.detectTo === 'wyw' || query.detectTo === 'yue') {
                 assistantPrompt = `翻译成${lang.langMap.get(query.detectTo) || query.detectTo}`
             }
@@ -54,17 +64,12 @@ export async function translate(query: TranslateQuery) {
             }
             if (query.selectedWord) {
                 // 在选择的句子中，选择特定的单词。触发语境学习功能。
-                systemPrompt = `你是一位${
-                    lang.langMap.get(query.detectFrom) || query.detectFrom
-                }词义语法专家，你在教我${lang.langMap.get(query.detectFrom) || query.detectFrom}，我给你一句${
-                    lang.langMap.get(query.detectFrom) || query.detectFrom
-                }句子，和这个句子中的一个单词，请用${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                }帮我解释一下，这个单词在句子中的意思和句子本身的意思,如果单词在这个句子中是习话的一部分，请解释这句句子中的习话，并举几个相同意思的${
-                    lang.langMap.get(query.detectFrom) || query.detectFrom
-                }例句,并用${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                }解释例句。如果你明白了请说同意，然后我们开始。`
+                systemPrompt = `你是一位${lang.langMap.get(query.detectFrom) || query.detectFrom
+                    }词义语法专家，你在教我${lang.langMap.get(query.detectFrom) || query.detectFrom}，我给你一句${lang.langMap.get(query.detectFrom) || query.detectFrom
+                    }句子，和这个句子中的一个单词，请用${lang.langMap.get(query.detectTo) || query.detectTo
+                    }帮我解释一下，这个单词在句子中的意思和句子本身的意思,如果单词在这个句子中是习话的一部分，请解释这句句子中的习话，并举几个相同意思的${lang.langMap.get(query.detectFrom) || query.detectFrom
+                    }例句,并用${lang.langMap.get(query.detectTo) || query.detectTo
+                    }解释例句。如果你明白了请说同意，然后我们开始。`
                 assistantPrompt = '好的，我明白了，请给我这个句子和单词。'
                 query.text = `句子是：${query.text}\n单词是：${query.selectedWord}`
             }
@@ -82,9 +87,8 @@ export async function translate(query: TranslateQuery) {
             if (toChinese) {
                 assistantPrompt = '用最简洁的语言使用中文总结此段文本'
             } else {
-                assistantPrompt = `summarize this text in the most concise language and must use ${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                } language!`
+                assistantPrompt = `summarize this text in the most concise language and must use ${lang.langMap.get(query.detectTo) || query.detectTo
+                    } language!`
             }
             break
         case 'analyze':
@@ -92,11 +96,9 @@ export async function translate(query: TranslateQuery) {
             if (toChinese) {
                 assistantPrompt = `请用中文翻译此段文本并解析原文中的语法`
             } else {
-                assistantPrompt = `translate this text to ${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                } and explain the grammar in the original text using ${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                }`
+                assistantPrompt = `translate this text to ${lang.langMap.get(query.detectTo) || query.detectTo
+                    } and explain the grammar in the original text using ${lang.langMap.get(query.detectTo) || query.detectTo
+                    }`
             }
             break
         case 'explain-code':
@@ -106,9 +108,8 @@ export async function translate(query: TranslateQuery) {
                 assistantPrompt =
                     '用最简洁的语言使用中文解释此段代码、正则表达式或脚本。如果内容不是代码，请返回错误提示。如果代码有明显的错误，请指出。'
             } else {
-                assistantPrompt = `explain the provided code, regex or script in the most concise language and must use ${
-                    lang.langMap.get(query.detectTo) || query.detectTo
-                } language! If the content is not code, return an error message. If the code has obvious errors, point them out.`
+                assistantPrompt = `explain the provided code, regex or script in the most concise language and must use ${lang.langMap.get(query.detectTo) || query.detectTo
+                    } language! If the content is not code, return an error message. If the code has obvious errors, point them out.`
             }
             break
     }

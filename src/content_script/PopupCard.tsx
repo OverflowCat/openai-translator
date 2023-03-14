@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import toast, { Toaster } from 'react-hot-toast'
 import { Client as Styletron } from 'styletron-engine-atomic'
 import { Provider as StyletronProvider } from 'styletron-react'
@@ -457,7 +457,7 @@ export function PopupCard(props: IPopupCardProps) {
     }, [headerRef])
 
     const translateText = useCallback(
-        async (text: string, selectedWord: string, signal: AbortSignal) => {
+        async (text: string, selectedWord: string, signal: AbortSignal, pronounce: boolean) => {
             if (!text || !detectFrom || !detectTo || !translateMode) {
                 return
             }
@@ -490,6 +490,7 @@ export function PopupCard(props: IPopupCardProps) {
                     selectedWord,
                     detectFrom,
                     detectTo,
+                    pronounce,
                     onMessage: (message) => {
                         if (message.role) {
                             return
@@ -559,11 +560,24 @@ export function PopupCard(props: IPopupCardProps) {
     useEffect(() => {
         const controller = new AbortController()
         const { signal } = controller
-        translateText(originalText, selectedWord, signal)
+        translateText(originalText, selectedWord, signal, false)
         return () => {
             controller.abort()
         }
     }, [translateText, originalText, selectedWord])
+
+    const pronunce_controller = useRef(new AbortController()).current
+    const { signal } = pronunce_controller
+
+    const handlePronunce = useCallback(() => {
+        const text = editableText.trim()
+        translateText(text, text, signal, true)
+    }, [editableText, translateText, signal])
+    useEffect(() => {
+        return () => {
+            pronunce_controller.abort()
+        }
+    }, [translateText, originalText, translateMode])
 
     useEffect(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1026,6 +1040,7 @@ export function PopupCard(props: IPopupCardProps) {
                                                             return
                                                         }
                                                         ;(async () => {
+                                                            handlePronunce()
                                                             const browser = await getBrowser()
                                                             setIsSpeakingEditableText(true)
                                                             browser.runtime.sendMessage({
