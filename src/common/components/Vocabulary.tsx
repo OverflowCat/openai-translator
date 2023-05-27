@@ -286,6 +286,13 @@ const Vocabulary = (props: IVocabularyProps) => {
                 onFinish: () => {
                     setIsLoading(false)
                 },
+                onError: (error) => {
+                    setIsLoading(false)
+                    toast(error, {
+                        duration: 3000,
+                        icon: '😰',
+                    })
+                },
             })
         } finally {
             setIsLoading(false)

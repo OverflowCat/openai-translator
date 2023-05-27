@@ -1,4 +1,3 @@
-import { read } from 'fs'
 import { BackgroundEventNames } from './eventnames'
 
 export interface BackgroundFetchRequestMessage {
@@ -13,11 +12,7 @@ export interface BackgroundFetchResponseMessage
     data?: string
 }
 
-export async function backgroundFetch(
-    input: string,
-    options: RequestInit,
-    buffer?: TransformStream<Uint8Array, Uint8Array>
-) {
+export async function backgroundFetch(input: string, options: RequestInit) {
     return new Promise<Response>((resolve, reject) => {
         ;(async () => {
             const { signal, ...fetchOptions } = options
@@ -25,9 +20,9 @@ export async function backgroundFetch(
                 reject(new DOMException('Aborted', 'AbortError'))
                 return
             }
-            buffer = new TransformStream()
-            const { readable } = buffer
-            const { writable } = buffer
+
+            const transformStream = new TransformStream<Uint8Array, Uint8Array>()
+            const { writable, readable } = transformStream
             const writer = writable.getWriter()
             const textEncoder = new TextEncoder()
 
@@ -46,24 +41,26 @@ export async function backgroundFetch(
                 return text
             }
 
+            const browser = await require('webextension-polyfill')
             let resolved = false
-            const browser = chrome
             const port = browser.runtime.connect({ name: BackgroundEventNames.fetch })
             const message: BackgroundFetchRequestMessage = {
                 type: 'open',
                 details: { url: input, options: fetchOptions },
             }
-            console.log('114', { message })
-            const headers = new Headers()
-            headers.append('Access-Control-Allow-Origin', '*')
+            port.postMessage(message)
             port.onMessage.addListener((msg: BackgroundFetchResponseMessage) => {
-                const { data, ...restResp } = msg
-                console.log('118', { msg }) // this is okay!
-                console.log(119)
+                const { data, error, ...restResp } = msg
+                if (error) {
+                    const e = new Error()
+                    e.message = error.message
+                    e.name = error.name
+                    reject(e)
+                    return
+                }
                 writer.write(textEncoder.encode(data))
-                console.log(120)
                 if (!resolved) {
-                    const fakedresp = {
+                    resolve({
                         ...restResp,
                         body: readable,
                         text: readText,
@@ -71,16 +68,10 @@ export async function backgroundFetch(
                             const text = await readText()
                             return JSON.parse(text)
                         },
-                        url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Errors/Not_a_valid_code_point',
-                        headers,
-                    } as Response
-                    console.log('514', { fakedresp })
-                    resolve(fakedresp)
+                    } as Response)
                     resolved = true
                 }
-                console.log(130)
             })
-            port.postMessage(message)
 
             function handleAbort() {
                 port.postMessage({ type: 'abort' })
