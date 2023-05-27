@@ -3,6 +3,7 @@ import { createParser } from 'eventsource-parser'
 import { BaseDirectory, writeTextFile } from '@tauri-apps/api/fs'
 import { IBrowser, ISettings } from './types'
 import { getUniversalFetch } from './universal-fetch'
+import { backgroundFetch } from './background/fetch'
 
 export const defaultAPIURL = 'https://api.openai.com'
 export const defaultAPIURLPath = '/v1/chat/completions'
@@ -218,37 +219,52 @@ export async function exportToCsv<T extends Record<string, string | number>>(fil
 interface FetchSSEOptions extends RequestInit {
     onMessage(data: string): void
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError(error: any): void
     onStatusCode?: (statusCode: number) => void
     fetcher?: (input: string, options: RequestInit) => Promise<Response>
 }
 
 export async function fetchSSE(input: string, options: FetchSSEOptions) {
-    const { onMessage, onError, onStatusCode, fetcher = getUniversalFetch(), ...fetchOptions } = options
+    const { onMessage, onStatusCode, fetcher = backgroundFetch, ...fetchOptions } = options
 
-    const resp = await fetcher(input, fetchOptions)
+    const buffer = new window.TransformStream()
+    const resp = await fetcher(input, fetchOptions, buffer)
     onStatusCode?.(resp.status)
     if (resp.status !== 200) {
-        onError(await resp.json())
+        console.warn('fetchSSE', resp.status, resp.statusText)
         return
     }
-
     const parser = createParser((event) => {
         if (event.type === 'event') {
             onMessage(event.data)
         }
     })
-    const reader = resp.body.getReader()
+    const reader = buffer.readable.getReader()
+    if (!reader) {
+        console.warn('fetchSSE: no reader')
+        return
+    }
     try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const { done, value } = await reader.read()
+            console.log('reader true')
+            let res
+            try {
+                res = await reader.read()
+            } catch (e) {
+                console.error(e)
+                continue
+            }
+            const { done, value } = res
+            console.log('reader done, value:', { done, value })
             if (done) {
                 break
             }
             const str = new TextDecoder().decode(value)
+            console.log('decoded str:', { str })
             parser.feed(str)
         }
+    } catch (e) {
+        console.error(e)
     } finally {
         reader.releaseLock()
     }

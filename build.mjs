@@ -8,7 +8,7 @@ const userscriptOutDir = 'dist/userscript'
 
 async function esbuildBrowserExtension() {
     await esbuild.build({
-        target: ['es2015', 'safari11'],
+        target: ['es2018', 'safari11'],
         entryPoints: [
             'src/browser-extension/content_script/index.tsx',
             'src/browser-extension/background/index.ts',
@@ -18,7 +18,7 @@ async function esbuildBrowserExtension() {
         bundle: true,
         outdir: browserExtensionOutDir,
         treeShaking: true,
-        minify: true,
+        minify: false,
         legalComments: 'none',
         sourcemap: true,
         loader: {

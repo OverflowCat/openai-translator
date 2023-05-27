@@ -25,7 +25,6 @@ interface BaseTranslateQuery {
     detectTo: LangCode
     mode: Exclude<TranslateMode, 'big-bang'>
     onMessage: (message: { content: string; role: string; isWordMode: boolean; isFullText?: boolean }) => void
-    onError: (error: string) => void
     onFinish: (reason: string) => void
     onStatusCode?: (statusCode: number) => void
     signal: AbortSignal
@@ -395,6 +394,7 @@ export async function translate(query: TranslateQuery) {
             onMessage: (msg) => {
                 let resp
                 try {
+                    console.log('message', msg)
                     resp = JSON.parse(msg)
                     // eslint-disable-next-line no-empty
                 } catch {
@@ -421,41 +421,6 @@ export async function translate(query: TranslateQuery) {
                     length = targetTxt.length
                 }
             },
-            onError: (err) => {
-                if (err instanceof Error) {
-                    query.onError(err.message)
-                    return
-                }
-                if (typeof err === 'string') {
-                    query.onError(err)
-                    return
-                }
-                if (typeof err === 'object') {
-                    const { detail } = err
-                    if (detail) {
-                        const { message } = detail
-                        if (message) {
-                            query.onError(`ChatGPT Web: ${message}`)
-                            return
-                        }
-                    }
-                    query.onError(`ChatGPT Web: ${JSON.stringify(err)}`)
-                    return
-                }
-                const { error } = err
-                if (error instanceof Error) {
-                    query.onError(error.message)
-                    return
-                }
-                if (typeof error === 'object') {
-                    const { message } = error
-                    if (message) {
-                        query.onError(message)
-                        return
-                    }
-                }
-                query.onError('Unknown error')
-            },
         })
 
         if (conversationId) {
@@ -467,6 +432,7 @@ export async function translate(query: TranslateQuery) {
         }
     } else {
         const url = urlJoin(settings.apiURL, settings.apiURLPath)
+        console.log('flag1')
         await fetchSSE(url, {
             method: 'POST',
             headers,
@@ -475,7 +441,9 @@ export async function translate(query: TranslateQuery) {
             onMessage: (msg) => {
                 let resp
                 try {
+                    console.log('parse json:', msg)
                     resp = JSON.parse(msg)
+                    console.log('parse json:', resp)
                     // eslint-disable-next-line no-empty
                 } catch {
                     query.onFinish('stop')
@@ -513,36 +481,6 @@ export async function translate(query: TranslateQuery) {
 
                     query.onMessage({ content: targetTxt, role, isWordMode })
                 }
-            },
-            onError: (err) => {
-                if (err instanceof Error) {
-                    query.onError(err.message)
-                    return
-                }
-                if (typeof err === 'string') {
-                    query.onError(err)
-                    return
-                }
-                if (typeof err === 'object') {
-                    const { detail } = err
-                    if (detail) {
-                        query.onError(detail)
-                        return
-                    }
-                }
-                const { error } = err
-                if (error instanceof Error) {
-                    query.onError(error.message)
-                    return
-                }
-                if (typeof error === 'object') {
-                    const { message } = error
-                    if (message) {
-                        query.onError(message)
-                        return
-                    }
-                }
-                query.onError('Unknown error')
             },
         })
     }

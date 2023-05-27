@@ -816,57 +816,38 @@ function InnerTranslator(props: IInnerTranslatorProps) {
                 return
             }
             let isStopped = false
-            try {
-                await translate({
-                    mode: translateMode,
-                    signal,
-                    text,
-                    selectedWord,
-                    detectFrom: sourceLang,
-                    detectTo: targetLang,
-                    onStatusCode: (statusCode) => {
-                        setIsNotLogin(statusCode === 401)
-                    },
-                    onMessage: (message) => {
-                        if (message.role) {
-                            return
+            await translate({
+                mode: translateMode,
+                signal,
+                text,
+                selectedWord,
+                detectFrom: sourceLang,
+                detectTo: targetLang,
+                onStatusCode: (statusCode) => {
+                    setIsNotLogin(statusCode === 401)
+                },
+                onMessage: (message) => {
+                    if (message.role) {
+                        return
+                    }
+                    setIsWordMode(message.isWordMode)
+                    setTranslatedText((translatedText) => {
+                        if (message.isFullText) {
+                            return message.content
                         }
-                        setIsWordMode(message.isWordMode)
-                        setTranslatedText((translatedText) => {
-                            if (message.isFullText) {
-                                return message.content
-                            }
-                            return translatedText + message.content
-                        })
-                    },
-                    onFinish: (reason) => {
-                        afterTranslate(reason)
-                        setTranslatedText((translatedText) => {
-                            const result = translatedText
-                            cache.set(cachedKey, result)
-                            return result
-                        })
-                    },
-                    onError: (error) => {
-                        setActionStr('Error')
-                        setErrorMessage(error)
-                    },
-                })
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (error: any) {
-                // if error is a AbortError then ignore this error
-                if (error.name === 'AbortError') {
-                    isStopped = true
-                    return
-                }
-                setActionStr('Error')
-                setErrorMessage((error as Error).toString())
-            } finally {
-                if (!isStopped) {
-                    stopLoading()
-                    isStopped = true
-                }
-            }
+                        return translatedText + message.content
+                    })
+                },
+                onFinish: (reason) => {
+                    afterTranslate(reason)
+                    setTranslatedText((translatedText) => {
+                        const result = translatedText
+                        cache.set(cachedKey, result)
+                        return result
+                    })
+                },
+            })
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         },
         [translateMode, sourceLang, targetLang]
     )
