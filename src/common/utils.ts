@@ -223,6 +223,10 @@ interface FetchSSEOptions extends RequestInit {
     fetcher?: (input: string, options: RequestInit) => Promise<Response>
 }
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function fetchSSE(input: string, options: FetchSSEOptions) {
     const { onMessage, onError, onStatusCode, fetcher = getUniversalFetch(), ...fetchOptions } = options
 
@@ -242,7 +246,15 @@ export async function fetchSSE(input: string, options: FetchSSEOptions) {
     try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
-            const { done, value } = await reader.read()
+            await sleep(80)
+            let res
+            try {
+                res = await reader.read()
+            } catch (e) {
+                console.error(e)
+                continue
+            }
+            const { done, value } = res
             if (done) {
                 break
             }
